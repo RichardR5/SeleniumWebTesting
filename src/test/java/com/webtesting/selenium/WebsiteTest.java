@@ -5,7 +5,7 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class WebTest {
+public class WebsiteTest {
 
     private WebDriver driver;
 

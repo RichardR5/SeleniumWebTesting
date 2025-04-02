@@ -3,65 +3,139 @@ package com.webtesting.selenium;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.interactions.Actions;
+import org.openqa.selenium.remote.RemoteWebDriver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.*;
 import java.awt.event.InputEvent;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.*;
 import java.util.List;
 
 
-public class WebTesting {
+public class WebsiteTestApp {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(WebTesting.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(WebsiteTestApp.class);
+    private static final String outputFilePath = "output/main_test_results.txt";
 
     public static void main(String[] args) {
+        LOGGER.info("Initializing driver");
         WebDriver driver = new ChromeDriver();
         driver.manage().window().maximize();
-        LOGGER.info("Starting driver... performing tasks...");
 
         try {
+            // Setup and main workload
+            outputSetup();
             performTasks(driver);
         } catch (Exception e) {
-            LOGGER.error("Error occured when performing tasks... See logs for more information...");
+            LOGGER.error("Error occured when performing tasks, see logs for more information");
             LOGGER.error("Exception details:", e);
         } finally {
-            driver.quit();
-            LOGGER.info("Driver closed...");
+            // Closes driver if it is still active (for example if performTasks method throws an error before completion of Task 5 on line 79)
+            if (((RemoteWebDriver)driver).getSessionId() != null) {
+                driver.quit();
+                LOGGER.info("Driver closed");
+            }
         }
     }
 
+    /**
+     * This method handles the main workload by performing tasks.
+     * Workflow for a single task:
+     * 1. Perform task
+     * 2. Export results to a file
+     * @param driver used WebDriver
+     */
     private static void performTasks(WebDriver driver) {
+        LOGGER.info("Performing tasks");
         // Task 1
-        driver.get("https://www.playtechpeople.com");
+        String url = "https://www.playtechpeople.com";
+        driver.get(url);
         WebElement allowAllCookiesElement = driver.findElement(By.id("CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll"));
         click(driver, allowAllCookiesElement);
+        exportResults("<TASK 1>", "Opened web browser at URL:", List.of(url));
         LOGGER.info("Task 1 completed");
 
         // Task 2
         List<String> task2Results = findLocations(driver);
-        logResults("<TASK 2>", "Found %d Playtech locations:", task2Results);
+        exportResults("<TASK 2>", "Found %d Playtech locations:", task2Results);
         LOGGER.info("Task 2 completed");
 
         // Task 3
         String task3Result = findCasinoDescription(driver);
-        logResults("<TASK 3>", "Casino unit description:", List.of(task3Result));
+        exportResults("<TASK 3>", "Casino unit description:", List.of(task3Result));
         LOGGER.info("Task 3 completed");
 
         // Task 4
         List<String> task4Result = findJobs(driver);
-        logResults("<TASK 4>", "Available positions in Estonia from both Tartu and Tallinn:", task4Result);
+        exportResults("<TASK 4>", "Available positions in Estonia from both Tartu and Tallinn:", task4Result);
         LOGGER.info("Task 4 completed");
 
+        // Task 5
+        driver.quit();
+        exportResults("<TASK 5>", "Browser closed", new ArrayList<>());
+        LOGGER.info("Task 5 completed");
         LOGGER.info("All tasks completed");
+        LOGGER.info("Driver closed");
+
+        LOGGER.info("Results of tasks can be found in " + outputFilePath);
     }
 
-    private static void logResults(String taskTitle, String message, List<String> results) {
-        System.out.println("----------------------------------------------------");
-        System.out.printf("%s%n" + message + "%n", taskTitle, results.size());
-        results.forEach(System.out::println);
-        System.out.println("----------------------------------------------------");
+    /**
+     * This method sets up output folder and/or output file.
+     */
+    private static void outputSetup() {
+        String dirName = outputFilePath.split("/")[0];
+        File outputDir = new File(dirName);
+
+        if (!outputDir.exists()) {
+            // Creates output directory if it does not exist
+            LOGGER.info("Setting up output directory");
+            if (outputDir.mkdirs()) {
+                LOGGER.info("Created \"{}\" directory to project root", dirName);
+            } else {
+                LOGGER.error("Failed to create \"{}\" directory to project root", dirName);
+            }
+        } else {
+            File outputFile = new File(outputFilePath);
+            if (outputFile.exists()) {
+                // Deletes output file if it exists (needed because exportResults method appends to a file)
+                if (outputFile.delete()) {
+                    LOGGER.info("Deleted previous output file {}", outputFilePath);
+                } else {
+                    LOGGER.error("Failed to delete previous output file {}", outputFilePath);
+                }
+            }
+        }
+    }
+
+    /**
+     * This method exports the result of a task into a file.
+     * @param taskTitle task's title, e.g Task 1
+     * @param message message that comes with a task (describes results)
+     * @param results list of task's results
+     */
+    private static void exportResults(String taskTitle, String message, List<String> results) {
+        // Writes to a file (appends)
+        try (FileWriter fileWriter = new FileWriter(outputFilePath, true);
+             PrintWriter printWriter = new PrintWriter(fileWriter)) {
+
+            // Uses results.size() only if message also has a %d format specifier (only happens in case of Task 2 message)
+            if (message.contains("%d")) {
+                printWriter.printf("%s%n" + message + "%n", taskTitle, results.size());
+            } else {
+                printWriter.printf("%s%n%s%n", taskTitle, message);
+            }
+            results.forEach(printWriter::println);
+            printWriter.println();
+
+        } catch (IOException e) {
+            LOGGER.error("Error writing results to file", e);
+        }
     }
 
     /**
@@ -163,10 +237,13 @@ public class WebTesting {
 
         // Finds location details
         String locationElementText = driver.findElement(By.tagName("spl-job-location")).getDomAttribute("formattedaddress");
+
         // Finds apply button
         WebElement applyElement = driver.findElement(By.id("st-apply"));
+
         // Checks 1) whether a job has both Tartu and Tallinn in its location
         // Checks 2) the position's availability (when first completing this task the page still had recently expired positions listed)
+        assert locationElementText != null;
         if (locationElementText.contains("Tartu") && locationElementText.contains("Tallinn") && applyElement.isEnabled()) {
             result = true;
         }
@@ -178,7 +255,7 @@ public class WebTesting {
     }
 
     /**
-     * This method clicks on an element via specific coordinates
+     * This method clicks on an element via specific coordinates.
      * @param driver used WebDriver
      * @param element element that is clicked
      */
@@ -193,7 +270,7 @@ public class WebTesting {
             robot.mouseMove(coordinates.get("x"), coordinates.get("y"));
             robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
             robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
-            LOGGER.info(String.format("Mouse clicked at x: %d, y: %d", coordinates.get("x"), coordinates.get("y")));
+            LOGGER.info("Mouse clicked at x: {}, y: {}", coordinates.get("x"), coordinates.get("y"));
         } catch (AWTException e) {
             LOGGER.error("Failed to perform mouse movement/clicking", e);
         }
@@ -217,17 +294,17 @@ public class WebTesting {
 
         // Calculates driver's UI height
         JavascriptExecutor js = (JavascriptExecutor) driver;
-        int driverUIHeight = ((Long) js.executeScript("return window.outerHeight - window.innerHeight;")).intValue();
+        int driverUIHeight = ((Long) Objects.requireNonNull(js.executeScript("return window.outerHeight - window.innerHeight;"))).intValue();
+
         // Were used to test not maximized drivers (values were added to x and y coordinates since window didn't start at [x=0;y=0])
         /*int windowX = ((Long) js.executeScript("return window.screenX;")).intValue();
         int windowY = ((Long) js.executeScript("return window.screenY;")).intValue();*/
 
-        // half of element's width is added to simulate clicking in the middle of the element
+        // Half of element's width is added to simulate clicking in the middle of the element
         coordinates.put("x", elementX + elementWidth/2);
-        // driver's UI height is added because the element's y-coordinate corresponds to its coordinate on the webpage, not on user's display
+        // Driver's UI height is added because the element's y-coordinate corresponds to its coordinate on the webpage, not on user's display
         coordinates.put("y", elementY + driverUIHeight + elementHeight/2);
 
         return coordinates;
     }
-
 }
