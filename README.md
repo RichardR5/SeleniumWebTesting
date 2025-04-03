@@ -3,8 +3,8 @@
 ## Author: Richard-Sven Rivik
 
 ### Version 1:
-Java application that solves tasks
+Single Java application that solves tasks using Selenium web browser automation<br>
 Location: src/main
-### Version 2: (to be implemented)
-JUnit framework - running unit tests instead of a Java application 
+### Version 2:
+Running JUnit unit tests instead of a Java application<br> 
 Location: src/test
