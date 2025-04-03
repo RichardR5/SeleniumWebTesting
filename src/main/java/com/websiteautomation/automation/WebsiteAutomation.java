@@ -1,9 +1,10 @@
-package com.webtesting.selenium;
+package com.websiteautomation.automation;
 
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.remote.RemoteWebDriver;
+import org.openqa.selenium.remote.SessionId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,10 +17,11 @@ import java.io.PrintWriter;
 import java.util.*;
 import java.util.List;
 
+public class WebsiteAutomation {
 
-public class WebsiteTestApp {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(WebsiteTestApp.class);
+    // Logging
+    private static final Logger LOGGER = LoggerFactory.getLogger(WebsiteAutomation.class);
+    // Path for results file
     private static final String outputFilePath = "output/main_test_results.txt";
 
     public static void main(String[] args) {
@@ -35,8 +37,8 @@ public class WebsiteTestApp {
             LOGGER.error("Error occured when performing tasks, see logs for more information");
             LOGGER.error("Exception details:", e);
         } finally {
-            // Closes driver if it is still active (for example if performTasks method throws an error before completion of Task 5 on line 79)
-            if (((RemoteWebDriver)driver).getSessionId() != null) {
+            // Closes driver if it is still active (for example if performTasks method throws an error before completion of Task 5 on line 78)
+            if (((RemoteWebDriver) driver).getSessionId() != null) {
                 driver.quit();
                 LOGGER.info("Driver closed");
             }
@@ -53,11 +55,8 @@ public class WebsiteTestApp {
     private static void performTasks(WebDriver driver) {
         LOGGER.info("Performing tasks");
         // Task 1
-        String url = "https://www.playtechpeople.com";
-        driver.get(url);
-        WebElement allowAllCookiesElement = driver.findElement(By.id("CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll"));
-        click(driver, allowAllCookiesElement);
-        exportResults("<TASK 1>", "Opened web browser at URL:", List.of(url));
+        String task1Result = openBrowser(driver);
+        exportResults("<TASK 1>", "Opened web browser at URL:", List.of(task1Result));
         LOGGER.info("Task 1 completed");
 
         // Task 2
@@ -76,11 +75,15 @@ public class WebsiteTestApp {
         LOGGER.info("Task 4 completed");
 
         // Task 5
-        driver.quit();
-        exportResults("<TASK 5>", "Browser closed", new ArrayList<>());
-        LOGGER.info("Task 5 completed");
-        LOGGER.info("All tasks completed");
-        LOGGER.info("Driver closed");
+        SessionId task5Result = closeBrowser(driver);
+        if (task5Result == null) {
+            exportResults("<TASK 5>", "Browser closed", List.of());
+            LOGGER.info("Task 5 completed");
+            LOGGER.info("All tasks completed");
+            LOGGER.info("Driver closed");
+        } else {
+            exportResults("<TASK 5>", "Failed to close browser", List.of());
+        }
 
         LOGGER.info("Results of tasks can be found in " + outputFilePath);
     }
@@ -139,11 +142,28 @@ public class WebsiteTestApp {
     }
 
     /**
+     * This method opens a web browser. (Task 1)
+     * @param driver used WebDriver
+     * @return returns web browser's current url
+     */
+    public static String openBrowser(WebDriver driver) {
+        String url = "https://www.playtechpeople.com";
+        driver.get(url);
+
+        // Finds button to accept cookies and clicks it
+        WebElement allowAllCookiesElement = driver.findElement(By.id("CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll"));
+        click(driver, allowAllCookiesElement);
+
+        // Removes trailing "/" if it is present (many websites automatically include a trailing slash)
+        return driver.getCurrentUrl().replaceAll("/$", "");
+    }
+
+    /**
      * This method finds how many locations are under the "Locations" tab. (Task 2)
      * @param driver used WebDriver
      * @return returns a list with all the locations
      */
-    private static List<String> findLocations(WebDriver driver) {
+    public static List<String> findLocations(WebDriver driver) {
         // Finds "Locations" on navigation menu
         WebElement navMenuLocations = driver.findElement(By.id("menu-item-82"));
 
@@ -177,7 +197,7 @@ public class WebsiteTestApp {
      * @param driver used WebDriver
      * @return returns description of the Casino product suite
      */
-    private static String findCasinoDescription(WebDriver driver) {
+    public static String findCasinoDescription(WebDriver driver) {
         // Finds "Life at Playtech" on navigation menu
         WebElement navMenuLifeAtPlaytech = driver.findElement(By.id("menu-item-49"));
 
@@ -198,7 +218,7 @@ public class WebsiteTestApp {
      * @param driver used WebDriver
      * @return returns a list with links to such positions
      */
-    private static List<String> findJobs(WebDriver driver) {
+    public static List<String> findJobs(WebDriver driver) {
         // Initializes a list for storing links (this is later returned)
         List<String> links = new ArrayList<>();
 
@@ -218,6 +238,18 @@ public class WebsiteTestApp {
         }
 
         return links;
+    }
+
+    /**
+     * This method closes a web browser. (Task 5)
+     * @param driver used WebDriver
+     * @return returns session ID of the driver (to assure proper closing/quitting)
+     */
+    public static SessionId closeBrowser(WebDriver driver) {
+        driver.quit();
+
+        // Finds session ID of driver
+        return ((RemoteWebDriver) driver).getSessionId();
     }
 
     /**
@@ -270,7 +302,7 @@ public class WebsiteTestApp {
             robot.mouseMove(coordinates.get("x"), coordinates.get("y"));
             robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
             robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
-            LOGGER.info("Mouse clicked at x: {}, y: {}", coordinates.get("x"), coordinates.get("y"));
+            //LOGGER.info("Mouse clicked at x: {}, y: {}", coordinates.get("x"), coordinates.get("y"));
         } catch (AWTException e) {
             LOGGER.error("Failed to perform mouse movement/clicking", e);
         }
@@ -294,7 +326,7 @@ public class WebsiteTestApp {
 
         // Calculates driver's UI height
         JavascriptExecutor js = (JavascriptExecutor) driver;
-        int driverUIHeight = ((Long) Objects.requireNonNull(js.executeScript("return window.outerHeight - window.innerHeight;"))).intValue();
+        int driverUIHeight = ((Long) js.executeScript("return window.outerHeight - window.innerHeight;")).intValue();
 
         // Were used to test not maximized drivers (values were added to x and y coordinates since window didn't start at [x=0;y=0])
         /*int windowX = ((Long) js.executeScript("return window.screenX;")).intValue();
